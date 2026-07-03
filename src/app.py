@@ -19,6 +19,26 @@ current_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
 
+# Simple in-memory admin credentials
+admins = {
+    "teacher@mergington.edu": "teachpass123",
+}
+
+
+def require_admin(admin_email: str | None, admin_password: str | None):
+    if not admin_email or not admin_password:
+        raise HTTPException(status_code=401, detail="Admin login required")
+    if admins.get(admin_email) != admin_password:
+        raise HTTPException(status_code=403, detail="Invalid admin credentials")
+    return True
+
+
+@app.post("/admin/login")
+def admin_login(admin_email: str, admin_password: str):
+    """Validate teacher credentials for admin mode."""
+    require_admin(admin_email, admin_password)
+    return {"message": "Admin login successful"}
+
 # In-memory activity database
 activities = {
     "Chess Club": {
@@ -111,11 +131,14 @@ def signup_for_activity(activity_name: str, email: str):
 
 
 @app.delete("/activities/{activity_name}/unregister")
-def unregister_from_activity(activity_name: str, email: str):
+def unregister_from_activity(activity_name: str, email: str, admin_email: str | None = None, admin_password: str | None = None):
     """Unregister a student from an activity"""
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
+
+    # Validate admin credentials
+    require_admin(admin_email, admin_password)
 
     # Get the specific activity
     activity = activities[activity_name]
