@@ -3,6 +3,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const adminLoginForm = document.getElementById("admin-login-form");
+  const adminMessageDiv = document.getElementById("admin-message");
+
+  let adminCredentials = null;
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -73,11 +77,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const activity = button.getAttribute("data-activity");
     const email = button.getAttribute("data-email");
 
+    if (!adminCredentials) {
+      messageDiv.textContent = "Teacher login required to unregister students.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      return;
+    }
+
     try {
       const response = await fetch(
         `/activities/${encodeURIComponent(
           activity
-        )}/unregister?email=${encodeURIComponent(email)}`,
+        )}/unregister?email=${encodeURIComponent(email)}&admin_email=${encodeURIComponent(
+          adminCredentials.email
+        )}&admin_password=${encodeURIComponent(adminCredentials.password)}`,
         {
           method: "DELETE",
         }
@@ -109,6 +122,47 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error unregistering:", error);
     }
   }
+
+  // Handle admin login
+  adminLoginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const adminEmail = document.getElementById("admin-email").value;
+    const adminPassword = document.getElementById("admin-password").value;
+
+    try {
+      const response = await fetch(
+        `/admin/login?admin_email=${encodeURIComponent(
+          adminEmail
+        )}&admin_password=${encodeURIComponent(adminPassword)}`,
+        {
+          method: "POST",
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        adminCredentials = { email: adminEmail, password: adminPassword };
+        adminMessageDiv.textContent = "Teacher admin mode enabled.";
+        adminMessageDiv.className = "success";
+        adminLoginForm.reset();
+      } else {
+        adminMessageDiv.textContent = result.detail || "Admin login failed.";
+        adminMessageDiv.className = "error";
+      }
+
+      adminMessageDiv.classList.remove("hidden");
+      setTimeout(() => {
+        adminMessageDiv.classList.add("hidden");
+      }, 5000);
+    } catch (error) {
+      adminMessageDiv.textContent = "Failed to log in. Please try again.";
+      adminMessageDiv.className = "error";
+      adminMessageDiv.classList.remove("hidden");
+      console.error("Error logging in:", error);
+    }
+  });
 
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
